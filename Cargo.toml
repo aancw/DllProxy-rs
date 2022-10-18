@@ -1,0 +1,17 @@
+[package]
+name = "dll_proxy_rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pelite = "0.9.1"
+
+[[bin]]
+name = "dllproxy_64"
+path = "src/dll64.rs"
+
+[[bin]]
+name = "dllproxy_32"
+path = "src/dll32.rs"
