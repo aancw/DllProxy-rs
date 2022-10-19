@@ -8,10 +8,10 @@ edition = "2021"
 [dependencies]
 pelite = "0.9.1"
 
-[[bin]]
-name = "dllproxy_64"
-path = "src/dll64.rs"
+#[[bin]]
+#name = "dllproxy_64"
+#path = "src/dll64.rs"
 
-[[bin]]
-name = "dllproxy_32"
-path = "src/dll32.rs"
+#[[bin]]
+#name = "dllproxy_32"
+#path = "src/dll32.rs"
