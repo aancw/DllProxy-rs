@@ -1,47 +1,59 @@
-use pelite::FileMap;
-use pelite::pe64::PeFile as PeFile64;
-use pelite::pe64::Pe as Pe64;
-use pelite::pe32::PeFile as PeFile32;
-use pelite::pe32::Pe as Pe32;
-use pelite::Error as PeError;
+use std::process;
+use std::io::{self, Write};
+use pelite::{FileMap, Wrap, PeFile};
 
 fn main() {
 	// Load the desired file into memory
-	let file_map = FileMap::open("demo/Demo64.dll").unwrap();
+	let file_map = FileMap::open(r"C:\Program Files\7-Zip\7z.dll").unwrap();
     
 	// Process the image file
-	get_dll(file_map.as_ref()).unwrap();
+	match PeFile::from_bytes(&file_map) {
+		Ok(Wrap::T32(file)) => dump_export32(file),
+		Ok(Wrap::T64(file)) => dump_export64(file),
+		Err(err) => abort(&format!("{}", err)),
+	}
 }
 
-fn get_dll(image: &[u8]) -> pelite::Result<()> {
+fn dump_export64(file: pelite::pe64::PeFile) {
+	use pelite::pe64::Pe;
 
-	static mut export_func = None;
-	match PeFile64::from_bytes(image) {
-        Ok(pe) => {
-			// Let's read the DLL dependencies
-			let imports = pe.imports()?;
-			for desc in imports {
-				// Get the DLL name being imported from
-				let dll_name = desc.dll_name()?;
-				// Get the number of imports for this dll
-				let iat = desc.iat()?;
-				println!("imported {} functions from {}", iat.len(), dll_name);
-			}
-        },
-        Err(e) => {
-            if let PeError::PeMagic = e {
-                let pe = PeFile32::from_bytes(image)?;
-				// Let's read the DLL dependencies
-				let imports = pe.imports()?;
-				for desc in imports {
-					// Get the DLL name being imported from
-					let dll_name = desc.dll_name()?;
-					// Get the number of imports for this dll
-					let iat = desc.iat()?;
-					println!("imported {} functions from {}", iat.len(), dll_name);
-				}
-            } 
-        }
-    };
-	Ok(())
+	let exports = file.exports().unwrap();
+
+	let dll_name = exports.dll_name().unwrap();
+	println!("dll_name: {}", dll_name);
+	let by = exports.by().unwrap();
+
+	for result in by.iter_names() {
+		if let (Ok(name), Ok(export)) = result {
+			println!("export {}: {:?}", name, export);
+		}
+	}
+}
+
+fn dump_export32(file: pelite::pe32::PeFile) {
+	use pelite::pe32::Pe;
+	
+	let exports = file.exports().unwrap();
+
+	let dll_name = exports.dll_name().unwrap();
+	println!("dll_name: {}", dll_name);
+	let by = exports.by().unwrap();
+
+	for result in by.iter_names() {
+		if let (Ok(name), Ok(export)) = result {
+			println!("export {}: {:?}", name, export);
+		}
+	}
+}
+
+fn abort(message: &str) -> ! {
+	{
+		let stderr = io::stderr();
+		let mut stderr = stderr.lock();
+		let _ = stderr.write(b"dump: ");
+		let _ = stderr.write(message.as_bytes());
+		let _ = stderr.write(b".\n");
+		let _ = stderr.flush();
+	}
+	process::exit(1);
 }
