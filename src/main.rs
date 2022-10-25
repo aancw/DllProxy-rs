@@ -72,9 +72,7 @@ fn main() {
 
         let pragma_builders = pragma.join("");
         let templ = tmp_format.render_template(&dll_template, &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc})).unwrap();
-        /*for x in &pragma_builders {
-            println!("{}", x);
-        }*/
+
 
 	}else{
 		println!("DLL File doesn't exist. Please enter the correct location");
