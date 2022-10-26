@@ -102,24 +102,26 @@ fn main() {
             &export_count, file_name, tmp_name
         );
         for i in &_exports {
-            pragma.push(format!(
-                "#pragma comment(linker, \"/export:{}={}.{}\")\n",
-                i, tmp_name, i
-            ));
+            if !i.starts_with("_") {
+                pragma.push(format!(
+                    "#pragma comment(linker, \"/export:{}={}.{}\")\n",
+                    i, tmp_name, i
+                ));
+            }
         }
 
         let pragma_builders = pragma.join("");
         let templ = tmp_format
             .render_template(
                 &dll_template,
-                &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc}),
+                &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc.replace(r"\", r"\\")}),
             )
             .unwrap();
-        let c_file = format!("{}/{}_pragma.c", &out_dir, &file_noext);
+        let c_file = format!("{}/{}_pragma.cpp", &out_dir, &file_noext);
         let out_file = File::create(&c_file).unwrap();
         println!("[+] Exporting DLL C source code to {}", &c_file);
         write!(&out_file, "{}", &templ).expect("Cannot write file");
-        
+        copy_file(&dll_loc, &format!("{}/{}.dll", &out_dir, &tmp_name));
     } else {
         println!("DLL File doesn't exist. Please enter the correct location");
         process::exit(1);
