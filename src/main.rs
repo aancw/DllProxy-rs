@@ -14,10 +14,8 @@ use pelite::{FileMap, PeFile, Wrap};
 use rand::distributions::{Alphanumeric, DistString};
 use serde_json::json;
 use std::{
-    fs,
-    io::{
-        self, Write
-    },
+    fs::{copy, create_dir_all, File},
+    io::{self, Write},
     path::Path,
     process,
 };
@@ -111,14 +109,17 @@ fn main() {
         }
 
         let pragma_builders = pragma.join("");
-        let _templ = tmp_format
+        let templ = tmp_format
             .render_template(
                 &dll_template,
                 &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc}),
             )
             .unwrap();
         let c_file = format!("{}/{}_pragma.c", &out_dir, &file_noext);
+        let out_file = File::create(&c_file).unwrap();
         println!("[+] Exporting DLL C source code to {}", &c_file);
+        write!(&out_file, "{}", &templ).expect("Cannot write file");
+        
     } else {
         println!("DLL File doesn't exist. Please enter the correct location");
         process::exit(1);
@@ -175,13 +176,13 @@ fn check_file_exist(path: &str) -> bool {
 }
 
 fn create_io_dir(dirname: &String) {
-    if let Err(e) = fs::create_dir_all(dirname) {
+    if let Err(e) = create_dir_all(dirname) {
         println!("{:?}", e)
     }
 }
 
 fn copy_file(from: &String, to: &String) {
-    if let Err(e) = fs::copy(from, to) {
+    if let Err(e) = copy(from, to) {
         println!("{:?}", e)
     }
 }
