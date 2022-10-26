@@ -59,19 +59,19 @@ fn main() {
         let in_dir = format!("input_{}", &file_noext);
         let out_dir = format!("output_{}", &file_noext);
 
-        println!("{}{}", "[+] Creating input folder if not exist ", &in_dir.yellow());
+        println!("[+] Creating input folder if not exist {}", &in_dir.yellow());
         create_io_dir(&in_dir);
-        println!("{}{}", "[+] Backup original DLL to input directory at ", &in_dir.yellow());
+        println!("[+] Backup original DLL to input directory at {}", &in_dir.yellow());
         copy_file(&dll_loc, &format!("{}/{}", &in_dir, &file_name));
 
-        println!("{}{}", "[+] Creating output folder if not exist ", &out_dir.yellow());
+        println!("[+] Creating output folder if not exist {}", &out_dir.yellow());
 
         create_io_dir(&out_dir);
 
 		// Load the desired file into memory
 		let file_map = FileMap::open(&dll_loc).unwrap();
 
-		println!("{}{}", "[+] Searching exports function from : ", &dll_loc.yellow());
+		println!("[+] Searching exports function from : {}", &dll_loc.yellow());
 
 		// Process the image file
         let mut _exports = Vec::new();
@@ -89,9 +89,9 @@ fn main() {
         }
 
         let pragma_builders = pragma.join("");
-        let templ = tmp_format.render_template(&dll_template, &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc})).unwrap();
+        let _templ = tmp_format.render_template(&dll_template, &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc})).unwrap();
         let c_file = format!("{}/{}_pragma.c", &out_dir, &file_noext);
-        println!("{}{}", "[+] Exporting DLL C source code to ", &c_file );
+        println!("[+] Exporting DLL C source code to {}", &c_file );
 
 
 	}else{
@@ -114,7 +114,7 @@ fn dump_export64(file: pelite::pe64::PeFile) -> Vec<String> {
 		}
 	}
 
-    return export_list;
+    export_list
 }
 
 fn dump_export32(file: pelite::pe32::PeFile) -> Vec<String>{
@@ -130,7 +130,7 @@ fn dump_export32(file: pelite::pe32::PeFile) -> Vec<String>{
 		}
 	}
 
-    return export_list;
+    export_list
 }
 
 fn abort(message: &str) -> ! {
@@ -151,17 +151,11 @@ fn check_file_exist(path: &str) -> bool {
 }
 
 fn create_io_dir(dirname: &String){
-    match fs::create_dir_all(dirname){
-        Err(e) => println!("{:?}", e),
-        _ => ()
-    }
+    if let Err(e) = fs::create_dir_all(dirname) { println!("{:?}", e) }
 }
 
 fn copy_file(from: &String, to: &String){
-    match fs::copy(from, to){
-        Err(e) => println!("{:?}", e),
-        _ => ()
-    }
+   if let Err(e) = fs::copy(from, to) { println!("{:?}", e) }
 }
 
 fn get_dll_template() -> String{
@@ -214,7 +208,7 @@ LPVOID lpReserved
     return TRUE;
 }
     "###};
-    return template.to_string();
+    template.to_string()
 }
 
 /*
