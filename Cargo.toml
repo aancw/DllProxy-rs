@@ -12,6 +12,7 @@ colored = "2"
 indoc = "1.0.7"
 handlebars = "4.3.5"
 serde_json = "1.0.87"
+rand = "0.8.5"
 
 #[[bin]]
 #name = "dllproxy_64"
