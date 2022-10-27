@@ -110,7 +110,7 @@ fn main() {
             }
             Ok(Wrap::T64(file)) => {
                 _exports = dump_export64(file);
-                _dllsystem = "x64";
+                _dllsystem = "amd64";
             }
             Err(err) => abort(&format!("{}", err)),
         }
@@ -211,7 +211,7 @@ fn copy_file(from: &String, to: &String) {
 
 fn get_dll_template() -> String {
     let template = indoc! { r###"
-#include "scripts/pch.h"
+#include "../scripts/pch.h"
 #include <stdio.h>
 #include <stdlib.h>
 #define _CRT_SECURE_NO_DEPRECATE

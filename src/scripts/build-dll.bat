@@ -3,6 +3,9 @@
 @echo off
 :: rem vsvarsall.bat does not work if there are quoted paths on %PATH%
 set path=%path:"=%
+set ARCH=%1
+set DLL_LOC=%2
+set OUT_FILE=%3
 :: rem this will work for non VS 2017 build machines
 if exist "c:\progra~2\Micros~1.0\vc\vcvarsall.bat" (
     call c:\progra~2\Micros~1.0\vc\vcvarsall.bat && goto :SetVSEnvFinished
@@ -21,10 +24,12 @@ if not exist "%VS_PATH%" (
     echo "%VS_PATH%" not found. Is Visual Studio installed? && goto :ErrorExit
 )
 
-for /f "delims=" %%F in ('dir /b /s "%VS_PATH%\vsdevcmd.bat" 2^>nul') do set VSDEVCMD_PATH=%%F
-echo ********Executing %VSDEVCMD_PATH%********
-call "%VSDEVCMD_PATH%"
-goto :SetVSEnvFinished
+for /f "delims=" %%F in ('dir /b /s "%VS_PATH%\vcvarsall.bat" 2^>nul') do set VSDEVCMD_PATH=%%F
+echo ********Setup build environment********
+call "%VSDEVCMD_PATH%" %ARCH%
+echo [*] Compiling DLL file
+cl /LD %DLL_LOC% /link /out:%OUT_FILE%
+goto :SuccessExit
 
 
 :ErrorExit
