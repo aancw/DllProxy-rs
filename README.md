@@ -1,10 +1,15 @@
 # DllProxy-rs
 Rust Implementation of SharpDllProxy for DLL Proxying Technique
 
+## Features
+- Everything in SharpDllProxy
+- Automatic compile and build DLL
+
 ## Requirements
 - Rust
 - Cargo
 - [cargo-make](https://github.com/sagiegurari/cargo-make)
+- Visual Studio 2019/2022 with Visual C++ Build Tools or Standalone Visual Studio Build Tools 2019/2022 from https://aka.ms/vs/17/release/vs_BuildTools.exe
 
 ## Build Instructions
 
@@ -48,6 +53,11 @@ OPTIONS:
 - Run with automatic dll compilation
 ```
 .\dll_proxy_rs.exe -d <path/to/file.dll> -p <path/to/shellcode.bin> -a
+```
+Note: For this example, I'm just using msfvenom to generate the payload
+
+```
+msfvenom -a x64 --platform windows -p windows/x64/messagebox TEXT="DLL Proxy Loading using Rust worked!" -f raw > shellcode.bin
 ```
 
 ## Demo
