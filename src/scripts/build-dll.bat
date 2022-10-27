@@ -26,9 +26,13 @@ if not exist "%VS_PATH%" (
 
 for /f "delims=" %%F in ('dir /b /s "%VS_PATH%\vcvarsall.bat" 2^>nul') do set VSDEVCMD_PATH=%%F
 echo ********Setup build environment********
+
+setlocal
 call "%VSDEVCMD_PATH%" %ARCH%
 echo [*] Compiling DLL file
-cl /LD %DLL_LOC% /link /out:%OUT_FILE%
+cl /nologo /LD %DLL_LOC% /link /out:%OUT_FILE%
+endlocal
+
 goto :SuccessExit
 
 
