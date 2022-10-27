@@ -1,0 +1,28 @@
+[env]
+TARGET_DIR="target\\debug"
+
+[env.release]
+TARGET_DIR="target\\release"
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+dependencies = ["copy"]
+
+[tasks.build-release]
+command = "cargo"
+args = ["build", "--release"]
+dependencies = ["copy"]
+
+[tasks.copy]
+script_runner = "@shell"
+script = "xcopy /e /k /h /i src\\scripts ${TARGET_DIR}\\scripts"
+
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+
+[tasks.clean]
+command = "cargo"
+args = ["clean"]

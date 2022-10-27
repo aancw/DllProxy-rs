@@ -103,7 +103,6 @@ fn main() {
             }
             Err(err) => abort(&format!("{}", err)),
         }
-        println!("os system is {}", &_dllsystem);
         let export_count = _exports.len();
         println!(
             "[+] Redirecting {} function calls from {} to {}.dll",
@@ -129,6 +128,7 @@ fn main() {
         let out_file = File::create(&c_file).unwrap();
         println!("[+] Exporting DLL C source code to {}", &c_file);
         write!(&out_file, "{}", &templ).expect("Cannot write file");
+        println!("[+] Compiling C source to DLL {}", &file_name);
         copy_file(&dll_loc, &format!("{}/{}.dll", &out_dir, &tmp_name));
     } else {
         println!("DLL File doesn't exist. Please enter the correct location");
@@ -199,7 +199,7 @@ fn copy_file(from: &String, to: &String) {
 
 fn get_dll_template() -> String {
     let template = indoc! { r###"
-#include "pch.h"
+#include "scripts/pch.h"
 #include <stdio.h>
 #include <stdlib.h>
 #define _CRT_SECURE_NO_DEPRECATE
