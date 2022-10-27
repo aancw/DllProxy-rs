@@ -62,7 +62,7 @@ msfvenom -a x64 --platform windows -p windows/x64/messagebox TEXT="DLL Proxy Loa
 
 ## Demo
 
-TO BE ADDED
+![](https://i.imgur.com/T8Z5rzk.gif)
 
 ## Thanks to
 - Flangvik for his [SharpProxyDll](https://github.com/Flangvik/SharpDllProxy)
