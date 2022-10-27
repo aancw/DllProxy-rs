@@ -89,13 +89,21 @@ fn main() {
 
         // Process the image file
         let mut _exports = Vec::new();
+        let mut _dllsystem: &str;
 
         let mut pragma: Vec<String> = Vec::new();
         match PeFile::from_bytes(&file_map) {
-            Ok(Wrap::T32(file)) => _exports = dump_export32(file),
-            Ok(Wrap::T64(file)) => _exports = dump_export64(file),
+            Ok(Wrap::T32(file)) => {
+                _exports = dump_export32(file);
+                _dllsystem = "x86";
+            }
+            Ok(Wrap::T64(file)) => {
+                _exports = dump_export64(file);
+                _dllsystem = "x64";
+            }
             Err(err) => abort(&format!("{}", err)),
         }
+        println!("os system is {}", &_dllsystem);
         let export_count = _exports.len();
         println!(
             "[+] Redirecting {} function calls from {} to {}.dll",
