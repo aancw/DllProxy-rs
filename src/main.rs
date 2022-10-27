@@ -50,9 +50,20 @@ fn main() {
     // tell the handlebars to not escaping string
     tmp_format.register_escape_fn(no_escape);
 
-    if check_file_exist(&dll_loc) {
-        if !check_file_exist(&payload_loc) {
-            println!("Shellcode File doesn't exist. Please enter the correct location");
+    if !check_path_exist("scripts/") {
+        println!(
+            "{}",
+            "[!] Scripts file doesn't exist. Please copy it from https://github.com/aancw/DllProxy-rs".red()
+        );
+        process::exit(1);
+    }
+
+    if check_path_exist(&dll_loc) {
+        if !check_path_exist(&payload_loc) {
+            println!(
+                "{}",
+                "[!] Shellcode File doesn't exist. Please enter the correct location".red()
+            );
             process::exit(1);
         }
 
@@ -129,6 +140,7 @@ fn main() {
         println!("[+] Exporting DLL C source code to {}", &c_file);
         write!(&out_file, "{}", &templ).expect("Cannot write file");
         println!("[+] Compiling C source to DLL {}", &file_name);
+        
         copy_file(&dll_loc, &format!("{}/{}.dll", &out_dir, &tmp_name));
     } else {
         println!("DLL File doesn't exist. Please enter the correct location");
@@ -181,7 +193,7 @@ fn abort(message: &str) -> ! {
     process::exit(1);
 }
 
-fn check_file_exist(path: &str) -> bool {
+fn check_path_exist(path: &str) -> bool {
     return Path::new(path).exists();
 }
 
